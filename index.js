@@ -73,20 +73,25 @@ app.delete('/api/persons/:id', (request, response) => {
 
 app.post('/api/persons', (request, response) => {
   const person = request.body
+  console.log('entramos a post')
+  console.log(person)
+  console.log(person.name)
+  console.log(person.number)
 
-  if (!person.content.name) {
+  if (!person.name) {
     return response.status(400).json({
       error: 'name missig'
     })
   }
 
-  if (!person.content.number) {
+  if (!person.number) {
     return response.status(400).json({
       error: 'number missing'
     })
   }
-  console.log(persons.some((p) => p.name === person.content.name))
-  if (persons.some((p) => p.name === person.content.name)) {
+
+  console.log(persons.some((p) => p.name === person.name))
+  if (persons.some((p) => p.name === person.name)) {
     return response.status(400).json({
       error: 'name must be unique'
     })
@@ -96,8 +101,9 @@ app.post('/api/persons', (request, response) => {
   const maxId = Math.max(...ids)
 
   const newPerson = {
-    id: maxId + 1,
-    content: person.content
+    name: person.name,
+    number: person.number,
+    id: maxId + 1
   }
 
   persons = [...persons, newPerson]
