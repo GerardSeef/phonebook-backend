@@ -6,6 +6,7 @@ const app = express()
 
 app.use(cors())
 app.use(express.json())
+app.use(express.static('build'))
 // app.use(morgan('tiny'))
 
 morgan.token('ob', (req) => {
@@ -73,10 +74,6 @@ app.delete('/api/persons/:id', (request, response) => {
 
 app.post('/api/persons', (request, response) => {
   const person = request.body
-  console.log('entramos a post')
-  console.log(person)
-  console.log(person.name)
-  console.log(person.number)
 
   if (!person.name) {
     return response.status(400).json({
