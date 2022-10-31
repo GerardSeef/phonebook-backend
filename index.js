@@ -1,13 +1,15 @@
+require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
 const morgan = require('morgan')
-
 const app = express()
+const Person = require('./model/person')
+const errorHandler = require('./middelware/errorHandler')
+const unknownEndpoint = require('./middelware/unknownEndpoint')
 
 app.use(cors())
 app.use(express.json())
 app.use(express.static('build'))
-// app.use(morgan('tiny'))
 
 morgan.token('ob', (req) => {
   return `${JSON.stringify(req.body)}`
@@ -15,104 +17,80 @@ morgan.token('ob', (req) => {
 
 app.use(morgan(':method :url :status :response-time ms :req[header] :ob'))
 
-let persons = [
-  {
-    name: 'Arto Hellas',
-    number: '040 - 123456',
-    id: 1
-  },
-  {
-    name: 'Ada Lovelace',
-    number: '39-44-5323523',
-    id: 2
-  },
-  {
-    name: 'Dan Abramov',
-    number: '12-43-234345',
-    id: 3
-  },
-  {
-    name: 'Artur Willingum',
-    number: '+5954 3546897 987',
-    id: 5
-  },
-  {
-    name: 'Mary Poppendieck',
-    number: ' +54687 321654',
-    id: 6
-  }
-]
-
 app.get('/', (request, response) => {
   response.send('<h1>"Hello World"</h1>')
 })
 
-app.get('/info', (request, response) => {
-  const utcDate1 = new Date(Date.now())
-  response.send(`<p> Phonebook has info for ${persons.length} people </p> <p> ${utcDate1.toUTCString()}</p>`)
+app.get('/info', (request, response, next) => {
+  const utcDate = new Date(Date.now())
+  Person.find({})
+    .then((persons) => {
+      response.send(
+        `<p> Phonebook has info for ${persons.length} people </p> <p> ${utcDate}</p></p>`
+      )
+    })
+    .catch((error) => next(error))
 })
 
 app.get('/api/persons', (request, response) => {
-  response.json(persons)
+  Person.find({}).then(persons => {
+    response.json(persons)
+  })
 })
 
 app.get('/api/persons/:id', (request, response) => {
-  const id = Number(request.params.id)
-  const person = persons.find(n => n.id === id)
-  if (person) {
+  Person.findById(request.params.id).then(person => {
     response.json(person)
-  } else {
-    response.status(404).end()
-  }
-})
-
-app.delete('/api/persons/:id', (request, response) => {
-  const id = Number(request.params.id)
-  persons = persons.filter(person => person.id !== id)
-  response.status(204).end()
-})
-
-app.post('/api/persons', (request, response) => {
-  const person = request.body
-
-  if (!person.name) {
-    return response.status(400).json({
-      error: 'name missig'
-    })
-  }
-
-  if (!person.number) {
-    return response.status(400).json({
-      error: 'number missing'
-    })
-  }
-
-  console.log(persons.some((p) => p.name === person.name))
-  if (persons.some((p) => p.name === person.name)) {
-    return response.status(400).json({
-      error: 'name must be unique'
-    })
-  }
-
-  const ids = persons.map(n => n.id)
-  const maxId = Math.max(...ids)
-
-  const newPerson = {
-    name: person.name,
-    number: person.number,
-    id: maxId + 1
-  }
-
-  persons = [...persons, newPerson]
-
-  response.status(201).json(newPerson)
-})
-
-app.use((request, response) => {
-  response.status(404).json({
-    error: 'Not found'
   })
 })
+
+app.delete('/api/persons/:id', (request, response, next) => {
+  Person.findByIdAndRemove(request.params.id)
+    .then(result => {
+      response.status(204).end()
+    })
+    .catch(error => next(error))
+})
+
+app.post('/api/persons', (request, response, next) => {
+  const { name, number } = request.body
+
+  if (name === undefined) {
+    return response.status(400).json({ error: 'content missing' })
+  }
+
+  const person = new Person({
+    name,
+    number
+  })
+
+  person.save()
+    .then(savedPerson => {
+      response.json(savedPerson)
+    }).catch(err => next(err))
+})
+
+app.put('/api/persons/:id', (request, response, next) => {
+  const { name, number } = request.body
+
+  const person = {
+    name,
+    number
+  }
+
+  Person.findByIdAndUpdate(
+    request.params.id,
+    person,
+    { new: true, runValidators: true, context: 'query' }
+  )
+    .then(updatePerson => {
+      response.json(updatePerson)
+    })
+    .catch(error => next(error))
+})
+
+app.use(unknownEndpoint)
+app.use(errorHandler)
 
 // eslint-disable-next-line no-undef
 const PORT = process.env.PORT || 3001
